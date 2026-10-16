@@ -1,0 +1,46 @@
+
+name: Telegram Bot Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test message
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os, json, urllib.request
+
+          token = os.environ["BOT_TOKEN"]
+          base = f"https://api.telegram.org/bot{token}/"
+
+          def call(method, data=None):
+              req = urllib.request.Request(
+                  base + method,
+                  data=json.dumps(data or {}).encode(),
+                  headers={"Content-Type": "application/json"}
+              )
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.load(r)
+
+          updates = call("getUpdates")
+          messages = [
+              u.get("message") or u.get("edited_message")
+              for u in updates.get("result", [])
+          ]
+          messages = [m for m in messages if m and "chat" in m]
+
+          if not messages:
+              raise Exception("First send a message to your Telegram bot.")
+
+          chat_id = messages[-1]["chat"]["id"]
+          call("sendMessage", {
+              "chat_id": chat_id,
+              "text": "دادا! ربات تلگرام وصل شد. قدم بعدی: ساخت سیستم سیگنال طلا."
+          })
+          print("Test message sent.")
+          PY
